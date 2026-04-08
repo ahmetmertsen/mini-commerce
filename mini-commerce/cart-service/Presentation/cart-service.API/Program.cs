@@ -1,4 +1,5 @@
 using cart_service.Persistence;
+using cart_service.Application;
 
 namespace cart_service.API
 {
@@ -16,6 +17,7 @@ namespace cart_service.API
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddPersistenceService(builder.Configuration);
+            builder.Services.AddApplicationService();
 
             var app = builder.Build();
 

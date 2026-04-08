@@ -16,10 +16,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Controllers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\..\Core\cart-service.Application\cart-service.Application.csproj" />
     <ProjectReference Include="..\..\Infrastructure\cart-service.Infrastructure\cart-service.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Infrastructure\cart-service.Persistence\cart-service.Persistence.csproj" />
