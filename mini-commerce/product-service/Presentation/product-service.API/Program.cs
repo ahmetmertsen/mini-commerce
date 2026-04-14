@@ -1,4 +1,5 @@
 using product_service.Persistence;
+using product_service.Application;
 namespace product_service.API
 {
     public class Program
@@ -15,6 +16,7 @@ namespace product_service.API
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddPersistenceService(builder.Configuration);
+            builder.Services.AddApplicationService();
 
             var app = builder.Build();
 
