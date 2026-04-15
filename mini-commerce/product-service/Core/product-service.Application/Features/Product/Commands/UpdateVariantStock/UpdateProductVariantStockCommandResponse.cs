@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace product_service.Application.Features.Product.Commands.UpdateVariantStock
 {
-    internal class UpdateProductVariantStockCommandResponse
+    public class UpdateProductVariantStockCommandResponse
     {
+        public bool Succeeded { get; set; }
+        public string Message { get; set; } = null!;
+        public Guid VariantId { get; set; }
     }
 }

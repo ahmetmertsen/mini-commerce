@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 
 namespace product_service.Application.Features.Product.Commands.AddVariant
 {
-    internal class AddProductVariantCommandResponse
+    public class AddProductVariantCommandResponse
     {
+        public bool Succeeded { get; set; }
+        public string Message { get; set; } = null!;
+        public Guid ProductId { get; set; }
+        public Guid VariantId { get; set; }
     }
 }

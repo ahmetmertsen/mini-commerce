@@ -1,15 +1,16 @@
-﻿using MediatR;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace product_service.Application.Features.Product.Commands.AddVariant
+namespace product_service.Application.Dtos
 {
-    public class AddProductVariantCommand : IRequest<AddProductVariantCommandResponse>
+    public class ProductVariantDto
     {
+        public Guid Id { get; set; }
         public Guid ProductId { get; set; }
+
         public string Size { get; set; } = null!;
         public string Color { get; set; } = null!;
         public string Sku { get; set; } = null!;
