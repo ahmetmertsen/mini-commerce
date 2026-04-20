@@ -1,4 +1,5 @@
 using invoice_service.Persistence;
+using invoice_service.Application;
 namespace invoice_service.API
 {
     public class Program
@@ -14,7 +15,8 @@ namespace invoice_service.API
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
-            builder.Services.AddPersistenceServices(builder.Configuration);
+            builder.Services.AddPersistenceService(builder.Configuration);
+            builder.Services.AddApplicationService();
 
             var app = builder.Build();
 
