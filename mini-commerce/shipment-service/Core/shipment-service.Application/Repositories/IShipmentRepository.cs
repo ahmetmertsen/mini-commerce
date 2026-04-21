@@ -15,5 +15,7 @@ namespace shipment_service.Application.Repositories
         Task SaveChangesAsync();
 
         Task<List<Shipment>> GetByOrderIdAsync(Guid orderId);
+        Task<List<Shipment>> GetByCustomerIdAsync(Guid customerId);
+        Task<Shipment?> GetByTrackingNumberAsync(string trackingNumber);
     }
 }
