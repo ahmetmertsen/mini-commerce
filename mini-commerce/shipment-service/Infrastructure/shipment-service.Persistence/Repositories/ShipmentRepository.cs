@@ -32,5 +32,13 @@ namespace shipment_service.Persistence.Repositories
             .Where(s => s.OrderId == orderId)
             .OrderByDescending(s => s.CreatedDate)
             .ToListAsync();
+
+        public async Task<List<Shipment>> GetByCustomerIdAsync(Guid customerId) => await _context.Shipments
+            .Where(s => s.CustomerId == customerId)
+            .OrderByDescending(s => s.CreatedDate)
+            .ToListAsync();
+
+        public async Task<Shipment?> GetByTrackingNumberAsync(string trackingNumber) => await _context.Shipments
+            .FirstOrDefaultAsync(x => x.TrackingNumber == trackingNumber);
     }
 }
