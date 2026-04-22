@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using notificaiton_service.Application.Repositories;
+using notification_service.Application.Repositories;
 using notification_service.Domain.Entities;
 using notification_service.Persistence.Context;
 using System;
@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace notification_service.Persistence.Repositories
 {
-    public class NotificationRepository : INotificatitonRepository
+    public class NotificationRepository : INotificationRepository
     {
         private readonly NotificationServiceDbContext _context;
 

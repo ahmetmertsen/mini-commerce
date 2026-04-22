@@ -1,4 +1,5 @@
 using notification_service.Persistence;
+using notification_service.Application;
 namespace notification_service.API
 {
     public class Program
@@ -15,6 +16,7 @@ namespace notification_service.API
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddPersistenceServices(builder.Configuration);
+            builder.Services.AddApplicationServices();
 
             var app = builder.Build();
 
