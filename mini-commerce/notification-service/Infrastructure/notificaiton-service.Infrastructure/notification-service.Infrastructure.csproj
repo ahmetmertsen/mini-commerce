@@ -2,13 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>notificaiton_service.Infrastructure</RootNamespace>
+    <RootNamespace>notification_service.Infrastructure</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Core\notificaiton-service.Application\notificaiton-service.Application.csproj" />
+    <ProjectReference Include="..\..\Core\notificaiton-service.Application\notification-service.Application.csproj" />
   </ItemGroup>
 
 </Project>

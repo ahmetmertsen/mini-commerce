@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using notificaiton_service.Application.Repositories;
+using notification_service.Application.Repositories;
 using notification_service.Persistence.Context;
 using notification_service.Persistence.Repositories;
 using System;
@@ -19,7 +19,7 @@ namespace notification_service.Persistence
             services.AddDbContext<NotificationServiceDbContext>(options =>
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-            services.AddScoped<INotificatitonRepository, NotificationRepository>();
+            services.AddScoped<INotificationRepository, NotificationRepository>();
 
             return services;
         }

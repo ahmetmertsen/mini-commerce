@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace notificaiton_service.Application.Repositories
+namespace notification_service.Application.Repositories
 {
-    public interface INotificatitonRepository
+    public interface INotificationRepository
     {
         Task<Notification?> GetByIdAsync(Guid id);
         Task AddAsync(Notification notification);
