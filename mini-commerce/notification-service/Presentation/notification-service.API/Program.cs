@@ -1,5 +1,10 @@
-using notification_service.Persistence;
+using MassTransit;
+using notification_service.API.Consumers;
 using notification_service.Application;
+using notification_service.Infrastructure;
+using notification_service.Persistence;
+using Shared.Settings;
+
 namespace notification_service.API
 {
     public class Program
@@ -8,19 +13,30 @@ namespace notification_service.API
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             builder.Services.AddPersistenceServices(builder.Configuration);
             builder.Services.AddApplicationServices();
+            builder.Services.AddInfrastructureServices();
+
+            builder.Services.AddMassTransit(configurator =>
+            {
+                configurator.AddConsumer<NotificationRequestedConsumer>();
+
+                configurator.UsingRabbitMq((context, configure) =>
+                {
+                    configure.Host(builder.Configuration["RabbitMQ"]);
+                    configure.ReceiveEndpoint(RabbitMQSettings.NotificationRequestedQueue, endpoint =>
+                    {
+                        endpoint.ConfigureConsumer<NotificationRequestedConsumer>(context);
+                    });
+                });
+            });
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -28,12 +44,8 @@ namespace notification_service.API
             }
 
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
-
-
             app.MapControllers();
-
             app.Run();
         }
     }

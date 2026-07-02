@@ -11,8 +11,10 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdateMailVeri
     {
         public UpdateUserMailVerifyCommandValidator()
         {
-            RuleFor(x => x.EmailConfirmToken)
-                .NotEmpty().WithMessage("Email doğrulama token bilgisi boş olamaz.");
+            RuleFor(x => x.VerificationCode)
+                .NotEmpty().WithMessage("Email doğrulama kodu boş olamaz.")
+                .Length(6).WithMessage("Email doğrulama kodu 6 haneli olmalıdır.")
+                .Matches("^[0-9]{6}$").WithMessage("Email doğrulama kodu sadece rakamlardan oluşmalıdır.");
         }
     }
 }

@@ -9,6 +9,6 @@ namespace auth_service.Application.Dtos.User
     public class UpdateUserMailVerifyRequest
     {
         public Guid UserId { get; set; }
-        public string EmailConfirmToken { get; set; }
+        public string VerificationCode { get; set; }
     }
 }

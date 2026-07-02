@@ -19,5 +19,7 @@ namespace auth_service.Domain.Entities
         public Enums.UserStatus Status { get; set; } = Enums.UserStatus.Active;
         public DateTime? SuspendedUntil { get; set; }
         public ICollection<AuthSession> AuthSessions { get; set; } = new List<AuthSession>();
+
+        public ICollection<VerificationChallenge> VerificationChallenges { get; set; } = new List<VerificationChallenge>();
     }
 }

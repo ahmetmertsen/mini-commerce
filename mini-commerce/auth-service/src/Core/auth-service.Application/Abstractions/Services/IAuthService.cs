@@ -6,8 +6,8 @@ namespace auth_service.Application.Abstractions.Services
     {
         Task<AuthTokenDto> LoginAsync(string email, string password, CancellationToken cancellationToken);
         Task<AuthTokenDto> RefreshTokenLoginAsync(string refreshToken, CancellationToken cancellationToken);
-        Task<ForgotPasswordResponse> ForgotPasswordResetAsync(ForgotPasswordRequest request);
+        Task<ForgotPasswordResponse> ForgotPasswordResetAsync(ForgotPasswordRequest request, CancellationToken cancellationToken);
         Task<MailVerifyResponse> MailVerifyAsync(MailVerifyRequest request, CancellationToken cancellationToken);
-        Task<ChangeEmailResponse> ChangeEmailAsync(ChangeEmailRequest request);
+        Task<ChangeEmailResponse> ChangeEmailAsync(ChangeEmailRequest request, CancellationToken cancellationToken);
     }
 }

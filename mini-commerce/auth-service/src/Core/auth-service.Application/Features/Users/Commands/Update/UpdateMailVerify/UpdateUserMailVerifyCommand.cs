@@ -13,6 +13,6 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdateMailVeri
     {
         [JsonIgnore]
         public Guid UserId { get; set; }
-        public string EmailConfirmToken { get; set; }
+        public string VerificationCode { get; set; }
     }
 }

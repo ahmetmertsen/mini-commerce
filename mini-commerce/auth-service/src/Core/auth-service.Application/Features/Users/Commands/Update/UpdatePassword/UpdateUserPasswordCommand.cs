@@ -9,8 +9,8 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdatePassword
 {
     public class UpdateUserPasswordCommand : IRequest<UpdateUserPasswordCommandResponse>
     {
-        public Guid UserId { get; set; }
-        public string ResetToken { get; set; } = null!;
+        public string Email { get; set; } = null!;
+        public string VerificationCode { get; set; } = null!;
         public string newPassword { get; set; } = null!;
         public string newPasswordConfirmed { get; set; } = null!;
     }

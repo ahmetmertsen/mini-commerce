@@ -22,8 +22,8 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdatePassword
         {
             UpdateUserPasswordRequest request = new()
             {
-                UserId = commandRequest.UserId,
-                ResetToken = commandRequest.ResetToken,
+                Email = commandRequest.Email,
+                VerificationCode = commandRequest.VerificationCode,
                 newPassword = commandRequest.newPassword,
                 newPasswordConfirmed = commandRequest.newPasswordConfirmed,
             };

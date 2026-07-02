@@ -1,6 +1,8 @@
-﻿using auth_service.Application.Abstractions.Services;
+using auth_service.Application.Abstractions.Services;
+using auth_service.Application.Repositories;
 using auth_service.Domain.Entities;
 using auth_service.Persistence.Context;
+using auth_service.Persistence.Repositories;
 using auth_service.Persistence.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +16,7 @@ namespace auth_service.Persistence
         public static IServiceCollection AddPersistenceService(this IServiceCollection services, IConfiguration configuration)
         {
             services.AddDbContext<AuthServiceDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddIdentity<User, Role>(options =>
             {
@@ -24,13 +26,14 @@ namespace auth_service.Persistence
                 options.User.RequireUniqueEmail = true;
             })
                 .AddEntityFrameworkStores<AuthServiceDbContext>()
-                .AddDefaultTokenProviders(); // Password reset vs. tokenları için
+                .AddDefaultTokenProviders();
 
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IAuthSessionService, AuthSessionService>();
+            services.AddScoped<IVerificationChallengeService, VerificationChallengeService>();
             services.AddScoped<IRoleService, RoleService>();
-
+            services.AddScoped<IAuthOutboxRepository, AuthOutboxRepository>();
 
             return services;
         }

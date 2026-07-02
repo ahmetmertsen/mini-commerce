@@ -1,10 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using notification_service.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace notification_service.Persistence.Context
 {
@@ -13,33 +8,51 @@ namespace notification_service.Persistence.Context
         public NotificationServiceDbContext(DbContextOptions<NotificationServiceDbContext> options) : base(options) { }
 
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<NotificationInbox> NotificationInboxes { get; set; }
+        public DbSet<MailTemplate> MailTemplates { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<Notification>(entity =>
             {
-                entity.Property(x => x.Type)
-                    .HasConversion<string>();
+                entity.HasKey(notification => notification.Id);
+                entity.HasIndex(notification => notification.MessageId).IsUnique();
+                entity.HasIndex(notification => notification.UserId);
+                entity.HasIndex(notification => notification.CorrelationId);
 
-                entity.Property(x => x.Channel)
-                    .HasConversion<string>();
-
-                entity.Property(x => x.Title)
-                    .IsRequired()
-                    .HasMaxLength(200);
-
-                entity.Property(x => x.Message)
-                    .IsRequired()
-                    .HasMaxLength(2000);
-
-                entity.Property(x => x.FailureReason)
-                    .HasMaxLength(500);
-
-                entity.HasIndex(x => x.CustomerId);
-                entity.HasIndex(x => x.OrderId);
+                entity.Property(notification => notification.Type).HasConversion<string>().IsRequired();
+                entity.Property(notification => notification.Channel).HasConversion<string>().IsRequired();
+                entity.Property(notification => notification.Status).HasConversion<string>().IsRequired();
+                entity.Property(notification => notification.RecipientEmail).HasMaxLength(320);
+                entity.Property(notification => notification.RecipientPhone).HasMaxLength(32);
+                entity.Property(notification => notification.Subject).HasMaxLength(250).IsRequired();
+                entity.Property(notification => notification.Body).IsRequired();
+                entity.Property(notification => notification.FailureReason).HasMaxLength(1000);
             });
 
-            base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<NotificationInbox>(entity =>
+            {
+                entity.HasKey(inbox => inbox.Id);
+                entity.HasIndex(inbox => inbox.MessageId).IsUnique();
+                entity.HasIndex(inbox => inbox.CorrelationId);
+                entity.HasIndex(inbox => inbox.Status);
+
+                entity.Property(inbox => inbox.Type).HasConversion<string>().IsRequired();
+                entity.Property(inbox => inbox.Channel).HasConversion<string>().IsRequired();
+                entity.Property(inbox => inbox.Status).HasConversion<string>().IsRequired();
+                entity.Property(inbox => inbox.Payload).IsRequired();
+                entity.Property(inbox => inbox.Error).HasMaxLength(1000);
+            });
+
+            modelBuilder.Entity<MailTemplate>(entity =>
+            {
+                entity.HasKey(template => template.Id);
+                entity.HasIndex(template => template.Name).IsUnique();
+                entity.Property(template => template.Name).HasMaxLength(100).IsRequired();
+                entity.Property(template => template.Value).IsRequired();
+            });
         }
     }
 }

@@ -1,14 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using notification_service.Application.Repositories;
 using notification_service.Persistence.Context;
 using notification_service.Persistence.Repositories;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace notification_service.Persistence
 {
@@ -20,6 +15,8 @@ namespace notification_service.Persistence
                 options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
             services.AddScoped<INotificationRepository, NotificationRepository>();
+            services.AddScoped<INotificationInboxRepository, NotificationInboxRepository>();
+            services.AddScoped<IMailTemplateRepository, MailTemplateRepository>();
 
             return services;
         }

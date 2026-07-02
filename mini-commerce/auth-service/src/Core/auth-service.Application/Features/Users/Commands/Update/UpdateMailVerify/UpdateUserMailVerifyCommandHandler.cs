@@ -23,10 +23,10 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdateMailVeri
             UpdateUserMailVerifyRequest request = new()
             {
                 UserId = commandRequest.UserId,
-                EmailConfirmToken = commandRequest.EmailConfirmToken,
+                VerificationCode = commandRequest.VerificationCode,
             };
 
-            var response = await _userService.UpdateUserMailVerify(request);
+            var response = await _userService.UpdateUserMailVerify(request, cancellationToken);
 
             UpdateUserMailVerifyCommandResponse commandResponse = new()
             {

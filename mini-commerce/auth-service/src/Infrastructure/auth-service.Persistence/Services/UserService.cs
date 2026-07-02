@@ -9,7 +9,10 @@ using auth_service.Persistence.Context;
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using Shared.Events.AuthEvents;
+using Shared.Messages.Notification.Enums;
+using System.Text.Json;
+using System.Threading;
 
 namespace auth_service.Persistence.Services
 {
@@ -20,16 +23,16 @@ namespace auth_service.Persistence.Services
         private readonly AuthServiceDbContext _context;
         private readonly IMapper _mapper;
         private readonly IAuthSessionService _authSessionService;
-        private readonly ILogger<UserService> _logger;
+        private readonly IVerificationChallengeService _verificationChallengeService;
 
-        public UserService(UserManager<User> userManager, RoleManager<Role> roleManager, IMapper mapper, AuthServiceDbContext context, IAuthSessionService authSessionService, ILogger<UserService> logger)
+        public UserService(UserManager<User> userManager, RoleManager<Role> roleManager, IMapper mapper, AuthServiceDbContext context, IAuthSessionService authSessionService, IVerificationChallengeService verificationChallengeService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _mapper = mapper;
             _context = context;
             _authSessionService = authSessionService;
-            _logger = logger;
+            _verificationChallengeService = verificationChallengeService;
         }
 
         public async Task<RegisterUserResponseDto> RegisterAsync(RegisterUserRequestDto request, CancellationToken cancellationToken)
@@ -50,6 +53,8 @@ namespace auth_service.Persistence.Services
             user.Email = email;
             user.UserName = email;
 
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
             var result = await _userManager.CreateAsync(user, request.Password);
             if (result.Succeeded)
             {
@@ -62,29 +67,58 @@ namespace auth_service.Persistence.Services
 
                 }
 
-                var message = "Kullanıcı başarıyla kaydedildi. E-posta adresinizi doğrulamanız gerekiyor.";
-                try
+                var correlationId = Guid.NewGuid();
+                var verificationCode = await _verificationChallengeService.CreateCodeAsync(user.Id, VerificationPurpose.EmailVerification, user.Email!, correlationId, cancellationToken);
+
+                var outboxToken = Guid.NewGuid();
+
+                #region Notification Event
+                NotificationRequested notificationRequested = new()
                 {
-                    var emailConfirmToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-                    /*
-                    await _mailService.SendVerifyMailAsync(user.Email!, user.FullName, user.Id, emailConfirmToken.UrlEncode());
-                    */
+                    RecipientUserId = user.Id,
+                    RecipientEmail = user.Email,
+                    Type = NotificationType.EmailVerification,
+                    Channel = NotificationChannel.Email,
+                    IsSensitive = true,
+                    TemplateData = new Dictionary<string, string>
+                    {
+                        ["full_name"] = user.FullName,
+                        ["verification_code"] = verificationCode,
+                        ["app_name"] = "Mini Commerce"
+                    },
+                    CorrelationId = correlationId
+                };
+                #endregion
 
-                    user.EmailVerificationSentAt = DateTime.UtcNow;
-                    await _userManager.UpdateAsync(user);
-                }
-                catch (Exception exception)
+                #region AuthOutbox write
+                AuthOutbox authOutbox = new()
                 {
-                    message = "Kullanıcı başarıyla kaydedildi ancak doğrulama e-postası gönderilemedi. Tekrar gönderme işlemini kullanabilirsiniz.";
+                    IdempotentToken = outboxToken,
+                    CorrelationId = correlationId,
+                    OccuredOn = DateTime.UtcNow,
+                    ProcessedDate = null,
+                    Status = AuthOutboxStatus.Pending,
+                    RetryCount = 0,
+                    MaxRetryCount = 5,
+                    IsSensitive = notificationRequested.IsSensitive,
+                    Payload = JsonSerializer.Serialize(notificationRequested),
+                    Type = notificationRequested.GetType().Name
+                };
 
-                    _logger.LogWarning(exception, "Registration verification mail could not be sent. UserId: {UserId}", user.Id);
+                await _context.AuthOutboxes.AddAsync(authOutbox, cancellationToken);
+                await _context.SaveChangesAsync(cancellationToken);
+                #endregion
 
-                }
+                user.EmailVerificationSentAt = DateTime.UtcNow;
+                await _userManager.UpdateAsync(user);
+                await _context.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+
 
                 return new RegisterUserResponseDto
                 {
                     Succeeded = true,
-                    Message = message,
+                    Message = "Kullanıcı başarıyla kaydedildi. E-posta adresinizi doğrulamanız gerekiyor.",
                     UserId = user.Id
                 };
             }
@@ -97,21 +131,26 @@ namespace auth_service.Persistence.Services
 
         public async Task<UpdateUserPasswordResponse> UpdatePasswordAsync(UpdateUserPasswordRequest request, CancellationToken cancellationToken)
         {
-            User user = await _userManager.FindByIdAsync(request.UserId.ToString());
+            User? user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
                 throw new NotFoundException("Kullanıcı bulunamadı.");
             }
-            if (string.IsNullOrWhiteSpace(request.ResetToken))
+            if (string.IsNullOrWhiteSpace(user.Email))
             {
-                throw new PasswordChangeFailedException("Şifre sıfırlama bağlantısı geçersiz.");
+                throw new PasswordChangeFailedException("Kullanıcının e-posta adresi bulunamadı.");
+            }
+            if (string.IsNullOrWhiteSpace(request.VerificationCode))
+            {
+                throw new PasswordChangeFailedException("Şifre sıfırlama kodu geçersiz.");
             }
             if (!request.newPassword.Equals(request.newPasswordConfirmed))
             {
                 throw new PasswordChangeFailedException("Şifreler uyuşmuyor.");
             }
-            string resetToken = request.ResetToken.UrlDecode();
 
+            await _verificationChallengeService.ValidateCodeAsync(user.Id, VerificationPurpose.PasswordReset, user.Email, request.VerificationCode, cancellationToken);
+            string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             IdentityResult result = await _userManager.ResetPasswordAsync(user, resetToken, request.newPassword);
             if (result.Succeeded)
             {
@@ -133,9 +172,9 @@ namespace auth_service.Persistence.Services
         }
 
 
-        public async Task<UpdateUserMailVerifyResponse> UpdateUserMailVerify(UpdateUserMailVerifyRequest request)
+        public async Task<UpdateUserMailVerifyResponse> UpdateUserMailVerify(UpdateUserMailVerifyRequest request, CancellationToken cancellationToken)
         {
-            User user = await _userManager.FindByIdAsync(request.UserId.ToString());
+            User? user = await _userManager.FindByIdAsync(request.UserId.ToString());
             if (user == null)
             {
                 throw new NotFoundException("Kullanıcı bulunamadı.");
@@ -149,17 +188,24 @@ namespace auth_service.Persistence.Services
                 };
             }
 
-            if (string.IsNullOrWhiteSpace(request.EmailConfirmToken))
+            if (string.IsNullOrWhiteSpace(user.Email))
             {
-                throw new BadRequestException("Doğrulama bağlantısı geçersiz.");
+                throw new BadRequestException("Kullanıcının e-posta adresi bulunamadı.");
             }
 
-            string token = request.EmailConfirmToken.UrlDecode();
+            if (string.IsNullOrWhiteSpace(request.VerificationCode))
+            {
+                throw new BadRequestException("Doğrulama kodu geçersiz.");
+            }
+
+            await _verificationChallengeService.ValidateCodeAsync(user.Id, VerificationPurpose.EmailVerification, user.Email, request.VerificationCode, cancellationToken);
+            string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             IdentityResult result = await _userManager.ConfirmEmailAsync(user, token);
             if (result.Succeeded)
             {
                 await _userManager.UpdateSecurityStampAsync(user);
                 user.EmailVerificationSentAt = null;
+                await _userManager.UpdateAsync(user);
 
                 return new UpdateUserMailVerifyResponse
                 {
@@ -174,34 +220,46 @@ namespace auth_service.Persistence.Services
         }
 
 
-        public async Task<UpdateUserEmailResponse> UpdateUserEmailAsync(UpdateUserEmailRequest request)
+        public async Task<UpdateUserEmailResponse> UpdateUserEmailAsync(UpdateUserEmailRequest request, CancellationToken cancellationToken)
         {
-            var newEmail = request.NewEmail.Trim().ToLowerInvariant();
-
-            User user = await _userManager.FindByIdAsync(request.UserId.ToString());
+            User? user = await _userManager.FindByIdAsync(request.UserId.ToString());
             if (user == null)
             {
                 throw new NotFoundException("Kullanıcı bulunamadı.");
             }
 
-            if (string.IsNullOrWhiteSpace(request.ChangeEmailToken))
+            if (string.IsNullOrWhiteSpace(user.Email))
             {
-                throw new BadRequestException("Doğrulama bağlantısı geçersiz.");
+                throw new BadRequestException("Kullanıcının mevcut e-posta adresi bulunamadı.");
             }
-            string token = request.ChangeEmailToken.UrlDecode();
+
+            if (string.IsNullOrWhiteSpace(request.OldEmailVerificationCode) || string.IsNullOrWhiteSpace(request.NewEmailVerificationCode))
+            {
+                throw new BadRequestException("Doğrulama kodları geçersiz.");
+            }
+
+            var newEmail = request.NewEmail.Trim().ToLowerInvariant();
+            var existingUser = await _userManager.FindByEmailAsync(newEmail);
+            if (existingUser != null)
+            {
+                throw new ChangeEmailFailedException("Email güncellenirken hata oluştu...");
+            }
+
+            var oldEmail = user.Email;
+            await _verificationChallengeService.ValidateEmailChangeCodesAsync(user.Id, oldEmail, newEmail, request.OldEmailVerificationCode, request.NewEmailVerificationCode, cancellationToken);
+
+            string token = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
             IdentityResult result = await _userManager.ChangeEmailAsync(user, newEmail, token);
 
             if (result.Succeeded)
             {
-                var usernameResult = await _userManager.SetUserNameAsync(user, newEmail);
-                if (!usernameResult.Succeeded)
-                {
-                    throw new ChangeEmailFailedException("Kullanıcı adı email ile eşitlenemedi.");
-                }
-                   
                 await _userManager.UpdateSecurityStampAsync(user);
                 await _userManager.UpdateAsync(user);
-
+                await _authSessionService.RevokeAllSessionsAsync(user.Id, "Email changed", cancellationToken);
+                /*
+                 Notificaiton-service için event yazılacak
+                await _mailService.SendMailAsync(oldEmail, "E-Posta Adresiniz Değiştirildi", "BlogApp hesabınızın e-posta adresi değiştirildi. Bu işlemi siz yapmadıysanız hesabınızı güvene alın.");
+                */
                 return new UpdateUserEmailResponse
                 {
                     Succeeded = true,

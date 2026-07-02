@@ -1,9 +1,10 @@
-﻿using MediatR;
-using Microsoft.AspNetCore.Http;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using notificaiton_service.Application.Features.Notification.Queries.GetByCustomerId;
-using notificaiton_service.Application.Features.Notification.Queries.GetById;
-using notification_service.Application.Features.Notification.Commands.Create;
+using notification_service.Application.Features.Notifications.Commands.DeleteNotification;
+using notification_service.Application.Features.Notifications.Commands.MarkAllNotificationsAsRead;
+using notification_service.Application.Features.Notifications.Commands.MarkNotificationAsRead;
+using notification_service.Application.Features.Notifications.Queries.GetNotificationsByUserId;
+using notification_service.Application.Features.Notifications.Queries.GetUnreadNotificationCount;
 
 namespace notification_service.API.Controllers
 {
@@ -11,37 +12,81 @@ namespace notification_service.API.Controllers
     [ApiController]
     public class NotificationController : ControllerBase
     {
-        private readonly IMediator _mediatR;
+        private readonly IMediator _mediator;
 
-        public NotificationController(IMediator mediatR)
+        public NotificationController(IMediator mediator)
         {
-            _mediatR = mediatR;
+            _mediator = mediator;
         }
 
-        [HttpPost]
-        [Route("create")]
-        public async Task<IActionResult> Create([FromBody] CreateNotificationCommand request)
+        [HttpGet("users/{userId}")]
+        public async Task<IActionResult> GetByUserId(Guid userId, [FromQuery] int page = 1, [FromQuery] int size = 20, [FromQuery] bool onlyUnread = false, CancellationToken cancellationToken = default)
         {
-            var response = await _mediatR.Send(request);
+            var response = await _mediator.Send(new GetNotificationsByUserIdQuery
+            {
+                UserId = userId,
+                Page = page,
+                Size = size,
+                OnlyUnread = onlyUnread
+            }, cancellationToken);
+
             return Ok(response);
         }
 
-        [HttpGet]
-        [Route("getById/{id}")]
-        public async Task<IActionResult> GetById(Guid id)
+        [HttpGet("users/{userId}/unread-count")]
+        public async Task<IActionResult> GetUnreadCount(Guid userId, CancellationToken cancellationToken)
         {
-            var response = await _mediatR.Send(new GetNotificationByIdRequest { Id = id });
+            var response = await _mediator.Send(new GetUnreadNotificationCountQuery
+            {
+                UserId = userId
+            }, cancellationToken);
+
             return Ok(response);
         }
 
-        [HttpGet]
-        [Route("getByCustomerId/{customerId}")]
-        public async Task<IActionResult> GetByCustomerId(Guid customerId)
+        [HttpPatch("{notificationId}/users/{userId}/read")]
+        public async Task<IActionResult> MarkAsRead(Guid notificationId, Guid userId, CancellationToken cancellationToken)
         {
-            var response = await _mediatR.Send(new GetNotificationsByCustomerIdRequest { CustomerId = customerId });
+            var marked = await _mediator.Send(new MarkNotificationAsReadCommand
+            {
+                NotificationId = notificationId,
+                UserId = userId
+            }, cancellationToken);
+
+            if (!marked)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
+
+        [HttpPatch("users/{userId}/read-all")]
+        public async Task<IActionResult> MarkAllAsRead(Guid userId, CancellationToken cancellationToken)
+        {
+            var response = await _mediator.Send(new MarkAllNotificationsAsReadCommand
+            {
+                UserId = userId
+            }, cancellationToken);
+
             return Ok(response);
         }
 
+        [HttpDelete("{notificationId}/users/{userId}")]
+        public async Task<IActionResult> Delete(Guid notificationId, Guid userId, CancellationToken cancellationToken)
+        {
+            var deleted = await _mediator.Send(new DeleteNotificationCommand
+            {
+                NotificationId = notificationId,
+                UserId = userId
+            }, cancellationToken);
 
+            if (!deleted)
+            {
+                return NotFound();
+            }
+
+            return NoContent();
+        }
     }
 }

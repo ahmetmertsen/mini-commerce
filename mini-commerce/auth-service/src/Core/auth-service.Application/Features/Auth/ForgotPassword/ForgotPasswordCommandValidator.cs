@@ -12,8 +12,8 @@ namespace auth_service.Application.Features.Auth.ForgotPassword
         public ForgotPasswordCommandValidator()
         {
             RuleFor(x => x.Email)
-                .NotEmpty().WithMessage("Email veya kullanıcı adı boş olamaz.")
-                .MaximumLength(100).WithMessage("Email veya kullanıcı adı en fazla 100 karakter olabilir.");
+                .NotEmpty().WithMessage("Email bilgisi boş olamaz.")
+                .EmailAddress().WithMessage("Email formatı geçersiz.");
         }
     }
 }

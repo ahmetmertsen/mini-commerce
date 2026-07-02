@@ -13,7 +13,8 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdateEmail
     {
         [JsonIgnore]
         public Guid UserId { get; set; }
-        public string ChangeEmailToken { get; set; }
+        public string OldEmailVerificationCode { get; set; }
+        public string NewEmailVerificationCode { get; set; }
 
         public string NewEmail { get; set; }
     }

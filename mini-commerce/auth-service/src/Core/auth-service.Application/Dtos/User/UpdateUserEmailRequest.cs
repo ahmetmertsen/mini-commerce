@@ -9,7 +9,8 @@ namespace auth_service.Application.Dtos.User
     public class UpdateUserEmailRequest
     {
         public Guid UserId { get; set; }
-        public string ChangeEmailToken { get; set; }
+        public string OldEmailVerificationCode { get; set; }
+        public string NewEmailVerificationCode { get; set; }
         public string NewEmail { get; set; }
     }
 }

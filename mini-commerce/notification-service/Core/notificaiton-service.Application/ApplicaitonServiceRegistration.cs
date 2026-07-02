@@ -1,12 +1,6 @@
-﻿using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
-using notification_service.Application.Features.Notification.Commands.Create;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Text;
-using System.Threading.Tasks;
+using notification_service.Application.Abstractions.Services;
+using notification_service.Application.Services;
 
 namespace notification_service.Application
 {
@@ -16,11 +10,10 @@ namespace notification_service.Application
         {
             services.AddMediatR(cfg =>
             {
-                cfg.RegisterServicesFromAssemblyContaining<CreateNotificationCommand>();
-
+                cfg.RegisterServicesFromAssemblyContaining(typeof(ApplicaitonServiceRegistration));
             });
 
-            services.AddValidatorsFromAssemblyContaining<CreateNotificationCommandValidator>();
+            services.AddScoped<INotificationTemplateRenderer, NotificationTemplateRenderer>();
 
             return services;
         }

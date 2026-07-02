@@ -5,9 +5,14 @@ using auth_service.Application.Exceptions;
 using auth_service.Application.Helpers;
 using auth_service.Domain.Entities;
 using auth_service.Domain.Enums;
+using auth_service.Persistence.Context;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Shared.Events.AuthEvents;
+using Shared.Messages.Notification.Enums;
+using System.Text.Json;
 
 namespace auth_service.Persistence.Services
 {
@@ -15,12 +20,14 @@ namespace auth_service.Persistence.Services
     {
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
+        private readonly AuthServiceDbContext _context;
         private readonly ITokenHandler _tokenHandler;
         private readonly IAuthSessionService _authSessionService;
+        private readonly IVerificationChallengeService _verificationChallengeService;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthService> _logger;
 
-        public AuthService(UserManager<User> userManager, SignInManager<User> signInManager, ITokenHandler tokenHandler, IAuthSessionService authSessionService, IConfiguration configuration, ILogger<AuthService> logger)
+        public AuthService(UserManager<User> userManager, SignInManager<User> signInManager, ITokenHandler tokenHandler, IAuthSessionService authSessionService, IConfiguration configuration, ILogger<AuthService> logger, IVerificationChallengeService verificationChallengeService, AuthServiceDbContext context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -28,6 +35,8 @@ namespace auth_service.Persistence.Services
             _authSessionService = authSessionService;
             _configuration = configuration;
             _logger = logger;
+            _verificationChallengeService = verificationChallengeService;
+            _context = context;
         }
 
         public async Task<AuthTokenDto> LoginAsync(string email, string password, CancellationToken cancellationToken)
@@ -111,12 +120,12 @@ namespace auth_service.Persistence.Services
         }
 
 
-        public async Task<ForgotPasswordResponse> ForgotPasswordResetAsync(ForgotPasswordRequest request)
+        public async Task<ForgotPasswordResponse> ForgotPasswordResetAsync(ForgotPasswordRequest request, CancellationToken cancellationToken)
         {
             var response = new ForgotPasswordResponse
             {
                 Succeeded = true,
-                Message = "Mail adresi doğru ise şifre sıfırlama bağlantısı gönderildi."
+                Message = "Mail adresi doğru ise şifre sıfırlama kodu gönderildi."
             };
 
             if (string.IsNullOrWhiteSpace(request.Email))
@@ -126,15 +135,55 @@ namespace auth_service.Persistence.Services
 
             var user = await _userManager.FindByEmailAsync(request.Email);
 
-            if (user == null)
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
             {
                 return response;
             }
 
-            var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            /*
-            await _mailService.SendForgotPasswordMailAsync(user.Email!, user.FullName, user.Id, resetToken.UrlEncode());
-            */
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            var correlationId = Guid.NewGuid();
+            var verificationCode = await _verificationChallengeService.CreateCodeAsync(user.Id, VerificationPurpose.PasswordReset, user.Email, correlationId, cancellationToken);
+
+            var outboxToken = Guid.NewGuid();
+            #region Notification Event
+            NotificationRequested notificationRequested = new()
+            {
+                RecipientUserId = user.Id,
+                RecipientEmail = user.Email,
+                Type = NotificationType.PasswordReset,
+                Channel = NotificationChannel.Email,
+                IsSensitive = true,
+                TemplateData = new Dictionary<string, string>
+                {
+                    ["full_name"] = user.FullName,
+                    ["verification_code"] = verificationCode,
+                    ["app_name"] = "Mini Commerce"
+                },
+                CorrelationId = correlationId
+            };
+            #endregion
+
+            #region AuthOutbox write
+            AuthOutbox authOutbox = new()
+            {
+                IdempotentToken = outboxToken,
+                CorrelationId = correlationId,
+                OccuredOn = DateTime.UtcNow,
+                ProcessedDate = null,
+                Status = AuthOutboxStatus.Pending,
+                RetryCount = 0,
+                MaxRetryCount = 5,
+                IsSensitive = notificationRequested.IsSensitive,
+                Payload = JsonSerializer.Serialize(notificationRequested),
+                Type = notificationRequested.GetType().Name
+            };
+
+            await _context.AuthOutboxes.AddAsync(authOutbox, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            #endregion
+
             return response;
         }
 
@@ -144,7 +193,7 @@ namespace auth_service.Persistence.Services
             var response = new MailVerifyResponse
             {
                 Succeeded = true,
-                Message = "Doğrulama bağlantısı e-posta adresinize gönderildi."
+                Message = "Doğrulama kodu e-posta adresinize gönderildi."
             };
 
             var user = await _userManager.FindByIdAsync(request.UserId.ToString());
@@ -165,24 +214,63 @@ namespace auth_service.Persistence.Services
                 return response;
             }
 
-            var emailConfirmToken = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            /*
-            await _mailService.SendVerifyMailAsync(user.Email, user.FullName, user.Id, emailConfirmToken.UrlEncode());
-            */
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            var correlationId = Guid.NewGuid();
+            var verificationCode = await _verificationChallengeService.CreateCodeAsync(user.Id, VerificationPurpose.EmailVerification, user.Email, correlationId, cancellationToken);
+
+            var outboxToken = Guid.NewGuid();
+            #region Notification Event
+            NotificationRequested notificationRequested = new()
+            {
+                RecipientUserId = user.Id,
+                RecipientEmail = user.Email,
+                Type = NotificationType.EmailVerification,
+                Channel = NotificationChannel.Email,
+                IsSensitive = true,
+                TemplateData = new Dictionary<string, string>
+                {
+                    ["full_name"] = user.FullName,
+                    ["verification_code"] = verificationCode,
+                    ["app_name"] = "Mini Commerce"
+                },
+                CorrelationId = correlationId
+            };
+            #endregion
+
+            #region AuthOutbox write
+            AuthOutbox authOutbox = new()
+            {
+                IdempotentToken = outboxToken,
+                CorrelationId = correlationId,
+                OccuredOn = DateTime.UtcNow,
+                ProcessedDate = null,
+                Status = AuthOutboxStatus.Pending,
+                RetryCount = 0,
+                MaxRetryCount = 5,
+                IsSensitive = notificationRequested.IsSensitive,
+                Payload = JsonSerializer.Serialize(notificationRequested),
+                Type = notificationRequested.GetType().Name
+            };
+            #endregion
+
+            await _context.AuthOutboxes.AddAsync(authOutbox, cancellationToken);
             user.EmailVerificationSentAt = DateTime.UtcNow;
             await _userManager.UpdateAsync(user);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation("Verification mail requested. UserId: {UserId}", user.Id);
             return response;
         }
 
 
-        public async Task<ChangeEmailResponse> ChangeEmailAsync(ChangeEmailRequest request)
+        public async Task<ChangeEmailResponse> ChangeEmailAsync(ChangeEmailRequest request, CancellationToken cancellationToken)
         {
             var response = new ChangeEmailResponse
             {
                 Succeeded = true,
-                Message = "Yeni e-posta adresiniz uygunsa doğrulama bağlantısı gönderildi."
+                Message = "Yeni e-posta adresiniz uygunsa mevcut ve yeni e-posta adreslerinize doğrulama kodları gönderildi."
             };
 
             if (string.IsNullOrWhiteSpace(request.NewEmail))
@@ -191,7 +279,7 @@ namespace auth_service.Persistence.Services
             }
 
             var user = await _userManager.FindByIdAsync(request.UserId.ToString());
-            if (user == null)
+            if (user == null || string.IsNullOrWhiteSpace(user.Email))
             {
                 return response;
             }
@@ -203,8 +291,81 @@ namespace auth_service.Persistence.Services
                 return response;
             }
 
-            var emailChangeToken = await _userManager.GenerateChangeEmailTokenAsync(user, newEmail);
-            // await _mailService.SendChangeEmailMailAsync(newEmail, user.FullName, user.Id, emailChangeToken.UrlEncode());
+            await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+            var correlationId = Guid.NewGuid();
+            var oldEmailVerificationCode = await _verificationChallengeService.CreateCodeAsync(user.Id, VerificationPurpose.EmailChangeOld, user.Email, correlationId, cancellationToken);
+            var newEmailVerificationCode = await _verificationChallengeService.CreateCodeAsync(user.Id, VerificationPurpose.EmailChangeNew, newEmail, correlationId, cancellationToken);
+
+            var oldOutboxToken = Guid.NewGuid();
+            var newOutboxToken = Guid.NewGuid();
+            #region Notification Event
+            NotificationRequested notificationRequestedOld = new()
+            {
+                RecipientUserId = user.Id,
+                RecipientEmail = user.Email,
+                Type = NotificationType.EmailChangeOld,
+                Channel = NotificationChannel.Email,
+                IsSensitive = true,
+                TemplateData = new Dictionary<string, string>
+                {
+                    ["full_name"] = user.FullName,
+                    ["verification_code"] = oldEmailVerificationCode,
+                    ["new_email"] = newEmail,
+                    ["app_name"] = "Mini Commerce"
+                },
+                CorrelationId = correlationId
+            };
+            NotificationRequested notificationRequestedNew = new()
+            {
+                RecipientUserId = user.Id,
+                RecipientEmail = newEmail,
+                Type = NotificationType.EmailChangeNew,
+                Channel = NotificationChannel.Email,
+                IsSensitive = true,
+                TemplateData = new Dictionary<string, string>
+                {
+                    ["full_name"] = user.FullName,
+                    ["verification_code"] = newEmailVerificationCode,
+                    ["app_name"] = "Mini Commerce"
+                },
+                CorrelationId = correlationId
+            };
+            #endregion
+
+            #region AuthOutbox write
+            AuthOutbox authOutboxOld = new()
+            {
+                IdempotentToken = oldOutboxToken,
+                CorrelationId = correlationId,
+                OccuredOn = DateTime.UtcNow,
+                ProcessedDate = null,
+                Status = AuthOutboxStatus.Pending,
+                RetryCount = 0,
+                MaxRetryCount = 5,
+                IsSensitive = notificationRequestedOld.IsSensitive,
+                Payload = JsonSerializer.Serialize(notificationRequestedOld),
+                Type = notificationRequestedOld.GetType().Name
+            };
+            AuthOutbox authOutboxNew = new()
+            {
+                IdempotentToken = newOutboxToken,
+                CorrelationId = correlationId,
+                OccuredOn = DateTime.UtcNow,
+                ProcessedDate = null,
+                Status = AuthOutboxStatus.Pending,
+                RetryCount = 0,
+                MaxRetryCount = 5,
+                IsSensitive = notificationRequestedNew.IsSensitive,
+                Payload = JsonSerializer.Serialize(notificationRequestedNew),
+                Type = notificationRequestedNew.GetType().Name
+            };
+
+            await _context.AuthOutboxes.AddAsync(authOutboxOld, cancellationToken);
+            await _context.AuthOutboxes.AddAsync(authOutboxNew, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            #endregion
 
             return response;
         }

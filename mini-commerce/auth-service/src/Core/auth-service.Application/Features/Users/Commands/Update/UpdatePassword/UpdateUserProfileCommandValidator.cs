@@ -11,11 +11,14 @@ namespace auth_service.Application.Features.Users.Commands.Update.UpdatePassword
     {
         public UpdateUserPasswordCommandValidator()
         {
-            RuleFor(x => x.UserId)
-                .NotEmpty().WithMessage("User Id boş olmamalı.");
-
-            RuleFor(x => x.ResetToken)
-                .NotEmpty().WithMessage("Şifre sıfırlama token bilgisi boş olamaz.");
+            RuleFor(x => x.Email)
+                .NotEmpty().WithMessage("Email boş olamaz.")
+                .EmailAddress().WithMessage("Email formatı geçersiz.");
+                
+            RuleFor(x => x.VerificationCode)
+                .NotEmpty().WithMessage("Şifre sıfırlama kodu boş olamaz.")
+                .Length(6).WithMessage("Şifre sıfırlama kodu 6 haneli olmalıdır.")
+                .Matches("^[0-9]{6}$").WithMessage("Şifre sıfırlama kodu sadece rakamlardan oluşmalıdır.");
 
             RuleFor(x => x.newPassword)
                 .NotEmpty().WithMessage("Yeni şifre boş olamaz.")
