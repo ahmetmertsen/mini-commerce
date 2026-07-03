@@ -17,6 +17,7 @@ namespace customer_service.Persistence
             services.AddScoped<ICustomerRepository, CustomerRepository>();
             services.AddScoped<ICustomerAddressRepository, CustomerAddressRepository>();
             services.AddScoped<ICustomerConsentRepository, CustomerConsentRepository>();
+            services.AddScoped<ICustomerInboxRepository, CustomerInboxRepository>();
 
             return services;
         }

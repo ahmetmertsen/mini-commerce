@@ -277,20 +277,31 @@ namespace auth_service.Persistence.Services
 
             if (string.IsNullOrWhiteSpace(request.NewEmail))
             {
-                return response;
+                throw new ChangeEmailFailedException("Yeni e-posta adresi boş olamaz.");
             }
 
             var user = await _userManager.FindByIdAsync(request.UserId.ToString());
-            if (user == null || string.IsNullOrWhiteSpace(user.Email))
+            if (user == null)
             {
-                return response;
+                throw new NotFoundException("Kullanıcı bulunamadı.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.Email))
+            {
+                throw new ChangeEmailFailedException("Kullanıcının mevcut e-posta adresi bulunamadı.");
             }
 
             var newEmail = request.NewEmail.Trim().ToLowerInvariant();
+            var currentEmail = user.Email.Trim().ToLowerInvariant();
+            if (newEmail == currentEmail)
+            {
+                throw new ChangeEmailFailedException("Yeni e-posta adresi mevcut e-posta adresi ile aynı olamaz.");
+            }
+
             var existingUser = await _userManager.FindByEmailAsync(newEmail);
             if (existingUser != null)
             {
-                return response;
+                throw new ChangeEmailFailedException("Bu e-posta adresi başka bir hesap tarafından kullanılıyor.");
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);

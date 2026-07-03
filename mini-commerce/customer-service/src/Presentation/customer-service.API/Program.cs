@@ -1,9 +1,13 @@
+using customer_service.API.Consumers;
 using customer_service.API.Middlewares;
 using customer_service.Application;
 using customer_service.Persistence;
+using MassTransit;
 using Serilog;
 using Serilog.Core;
 using Serilog.Events;
+using Shared.Events.AuthEvents;
+using Shared.Settings;
 
 namespace customer_service.API
 {
@@ -48,6 +52,25 @@ namespace customer_service.API
 
             builder.Services.AddPersistenceService(builder.Configuration);
             builder.Services.AddApplicationService();
+
+            #region MassTransit
+            builder.Services.AddMassTransit(configurator =>
+            {
+                configurator.AddConsumer<AuthUserRegisteredEventConsumer>();
+                configurator.AddConsumer<AuthUserEmailChangedEventConsumer>();
+
+                configurator.UsingRabbitMq((context, configure) =>
+                {
+                    configure.Host(builder.Configuration["RabbitMQ"]);
+                    configure.ReceiveEndpoint(RabbitMQSettings.AuthCustomerEventsQueue, endpoint =>
+                    {
+                        endpoint.UseMessageRetry(retry => retry.Interval(3, TimeSpan.FromSeconds(5)));
+                        endpoint.ConfigureConsumer<AuthUserRegisteredEventConsumer>(context);
+                        endpoint.ConfigureConsumer<AuthUserEmailChangedEventConsumer>(context);
+                    });
+                });
+            });
+            #endregion
 
             var app = builder.Build();
 

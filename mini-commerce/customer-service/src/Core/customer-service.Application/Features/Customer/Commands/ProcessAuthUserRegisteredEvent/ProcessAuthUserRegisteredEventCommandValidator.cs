@@ -1,13 +1,19 @@
 using FluentValidation;
 
-namespace customer_service.Application.Features.Customer.Commands.CreateRegisteredCustomer
+namespace customer_service.Application.Features.Customer.Commands.ProcessAuthUserRegisteredEvent
 {
-    public class CreateRegisteredCustomerCommandValidator : AbstractValidator<CreateRegisteredCustomerCommand>
+    public class ProcessAuthUserRegisteredEventCommandValidator : AbstractValidator<ProcessAuthUserRegisteredEventCommand>
     {
-        public CreateRegisteredCustomerCommandValidator()
+        public ProcessAuthUserRegisteredEventCommandValidator()
         {
+            RuleFor(command => command.MessageId)
+                .NotEmpty().WithMessage("Message id bos olamaz.");
+
             RuleFor(command => command.AuthUserId)
                 .NotEmpty().WithMessage("Auth user id bos olamaz.");
+
+            RuleFor(command => command.CorrelationId)
+                .NotEmpty().WithMessage("Correlation id bos olamaz.");
 
             RuleFor(command => command.FullName)
                 .NotEmpty().WithMessage("Ad soyad bos olamaz.")
@@ -17,10 +23,6 @@ namespace customer_service.Application.Features.Customer.Commands.CreateRegister
                 .NotEmpty().WithMessage("Email bos olamaz.")
                 .EmailAddress().WithMessage("Email formati gecersiz.")
                 .MaximumLength(200).WithMessage("Email en fazla 200 karakter olabilir.");
-
-            RuleFor(command => command.PhoneNumber)
-                .MaximumLength(30).WithMessage("Telefon numarasi en fazla 30 karakter olabilir.")
-                .When(command => !string.IsNullOrWhiteSpace(command.PhoneNumber));
         }
     }
 }

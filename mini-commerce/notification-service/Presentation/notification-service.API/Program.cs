@@ -21,6 +21,7 @@ namespace notification_service.API
             builder.Services.AddApplicationServices();
             builder.Services.AddInfrastructureServices();
 
+            #region MassTransit
             builder.Services.AddMassTransit(configurator =>
             {
                 configurator.AddConsumer<NotificationRequestedConsumer>();
@@ -34,6 +35,7 @@ namespace notification_service.API
                     });
                 });
             });
+            #endregion
 
             var app = builder.Build();
 

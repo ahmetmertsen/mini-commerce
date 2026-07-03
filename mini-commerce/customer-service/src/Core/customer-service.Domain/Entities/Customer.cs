@@ -16,8 +16,7 @@ namespace customer_service.Domain.Entities
         public CustomerType Type { get; set; }
         public CustomerStatus Status { get; set; }
 
-        public string FirstName { get; set; } = null!;
-        public string LastName { get; set; } = null!;
+        public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string? PhoneNumber { get; set; }
 
@@ -31,19 +30,19 @@ namespace customer_service.Domain.Entities
 
         private Customer() { }
 
-        public static Customer CreateGuest(string firstName, string lastName, string email, string? phoneNumber = null)
+        public static Customer CreateGuest(string fullName, string email, string? phoneNumber = null)
         {
-            return Create(null, CustomerType.Guest, firstName, lastName, email, phoneNumber);
+            return Create(null, CustomerType.Guest, fullName, email, phoneNumber);
         }
 
-        public static Customer CreateRegistered(Guid authUserId, string firstName, string lastName, string email, string? phoneNumber = null)
+        public static Customer CreateRegistered(Guid authUserId, string fullName, string email, string? phoneNumber = null)
         {
             if (authUserId == Guid.Empty)
             {
                 throw new ArgumentException("Auth user id boş olamaz.", nameof(authUserId));
             }
                 
-            var customer = Create(authUserId, CustomerType.Registered, firstName, lastName, email, phoneNumber);
+            var customer = Create(authUserId, CustomerType.Registered, fullName, email, phoneNumber);
             customer.RegisteredAt = DateTime.UtcNow;
 
             return customer;
@@ -69,16 +68,22 @@ namespace customer_service.Domain.Entities
             UpdatedDate = DateTime.UtcNow;
         }
 
-        public void UpdateProfile(string firstName, string lastName, string email, string? phoneNumber = null)
+        public void UpdateProfile(string fullName, string email, string? phoneNumber = null)
         {
-            EnsureRequired(firstName, nameof(firstName));
-            EnsureRequired(lastName, nameof(lastName));
+            EnsureRequired(fullName, nameof(fullName));
             EnsureRequired(email, nameof(email));
 
-            FirstName = firstName.Trim();
-            LastName = lastName.Trim();
+            FullName = fullName.Trim();
             Email = email.Trim();
             PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim();
+            UpdatedDate = DateTime.UtcNow;
+        }
+
+        public void UpdateEmail(string email)
+        {
+            EnsureRequired(email, nameof(email));
+
+            Email = email.Trim();
             UpdatedDate = DateTime.UtcNow;
         }
 
@@ -106,10 +111,9 @@ namespace customer_service.Domain.Entities
             UpdatedDate = DateTime.UtcNow;
         }
 
-        private static Customer Create(Guid? authUserId, CustomerType type, string firstName, string lastName, string email, string? phoneNumber)
+        private static Customer Create(Guid? authUserId, CustomerType type, string fullName, string email, string? phoneNumber)
         {
-            EnsureRequired(firstName, nameof(firstName));
-            EnsureRequired(lastName, nameof(lastName));
+            EnsureRequired(fullName, nameof(fullName));
             EnsureRequired(email, nameof(email));
 
             return new Customer
@@ -119,8 +123,7 @@ namespace customer_service.Domain.Entities
                 CustomerNumber = GenerateCustomerNumber(),
                 Type = type,
                 Status = CustomerStatus.Active,
-                FirstName = firstName.Trim(),
-                LastName = lastName.Trim(),
+                FullName = fullName.Trim(),
                 Email = email.Trim(),
                 PhoneNumber = string.IsNullOrWhiteSpace(phoneNumber) ? null : phoneNumber.Trim(),
                 CreatedDate = DateTime.UtcNow

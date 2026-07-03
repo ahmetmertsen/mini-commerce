@@ -41,7 +41,7 @@ namespace customer_service.Application.Features.Customer.Commands.CreateRegister
                 };
             }
 
-            var customer = CustomerEntity.CreateRegistered(request.AuthUserId, request.FirstName, request.LastName, request.Email, request.PhoneNumber);
+            var customer = CustomerEntity.CreateRegistered(request.AuthUserId, request.FullName, request.Email, request.PhoneNumber);
 
             await _customerRepository.AddAsync(customer, cancellationToken);
             await _customerRepository.SaveChangesAsync(cancellationToken);

@@ -7,13 +7,4 @@ namespace notification_service.Application.Features.Notifications.Commands.Proce
     {
         public NotificationRequested Message { get; set; } = null!;
     }
-
-    public class ProcessNotificationRequestedCommandResponse
-    {
-        public Guid MessageId { get; set; }
-        public Guid CorrelationId { get; set; }
-        public bool AlreadyProcessed { get; set; }
-        public bool Succeeded { get; set; }
-        public string? Error { get; set; }
-    }
 }

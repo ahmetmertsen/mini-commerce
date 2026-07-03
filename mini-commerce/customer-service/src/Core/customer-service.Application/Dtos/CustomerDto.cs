@@ -9,8 +9,7 @@ namespace customer_service.Application.Dtos
         public string? CustomerNumber { get; set; }
         public CustomerType Type { get; set; }
         public CustomerStatus Status { get; set; }
-        public string FirstName { get; set; } = null!;
-        public string LastName { get; set; } = null!;
+        public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string? PhoneNumber { get; set; }
         public DateTime CreatedDate { get; set; }

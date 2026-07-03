@@ -22,7 +22,7 @@ namespace customer_service.Application.Features.Customer.Commands.CreateGuestCus
 
         public async Task<CreateGuestCustomerCommandResponse> Handle(CreateGuestCustomerCommand request, CancellationToken cancellationToken)
         {
-            var customer = CustomerEntity.CreateGuest(request.FirstName, request.LastName, request.Email, request.PhoneNumber);
+            var customer = CustomerEntity.CreateGuest(request.FullName, request.Email, request.PhoneNumber);
 
             await _customerRepository.AddAsync(customer, cancellationToken);
             await _customerRepository.SaveChangesAsync(cancellationToken);

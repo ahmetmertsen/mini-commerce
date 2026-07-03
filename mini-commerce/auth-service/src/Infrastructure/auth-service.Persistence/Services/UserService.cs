@@ -261,6 +261,12 @@ namespace auth_service.Persistence.Services
 
             if (result.Succeeded)
             {
+                var userNameResult = await _userManager.SetUserNameAsync(user, newEmail);
+                if (!userNameResult.Succeeded)
+                {
+                    throw new ChangeEmailFailedException($"Email kullanıcı adıyla eşitlenirken hata oluştu: {GetIdentityErrors(userNameResult)}");
+                }
+
                 await _userManager.UpdateSecurityStampAsync(user);
                 await _userManager.UpdateAsync(user);
                 await _authSessionService.RevokeAllSessionsAsync(user.Id, "Email changed", cancellationToken);

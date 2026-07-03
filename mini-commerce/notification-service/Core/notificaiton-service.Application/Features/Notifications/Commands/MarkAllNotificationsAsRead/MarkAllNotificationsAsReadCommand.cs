@@ -6,9 +6,4 @@ namespace notification_service.Application.Features.Notifications.Commands.MarkA
     {
         public Guid UserId { get; set; }
     }
-
-    public class MarkAllNotificationsAsReadCommandResponse
-    {
-        public int Count { get; set; }
-    }
 }

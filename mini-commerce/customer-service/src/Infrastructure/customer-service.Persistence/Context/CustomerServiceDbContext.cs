@@ -11,6 +11,7 @@ namespace customer_service.Persistence.Context
         public DbSet<Customer> Customers { get; set; }
         public DbSet<CustomerAddress> CustomerAddresses { get; set; }
         public DbSet<CustomerConsent> CustomerConsents { get; set; }
+        public DbSet<CustomerInbox> CustomerInboxes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -31,12 +32,8 @@ namespace customer_service.Persistence.Context
                     .HasMaxLength(30)
                     .IsRequired();
 
-                entity.Property(customer => customer.FirstName)
-                    .HasMaxLength(100)
-                    .IsRequired();
-
-                entity.Property(customer => customer.LastName)
-                    .HasMaxLength(100)
+                entity.Property(customer => customer.FullName)
+                    .HasMaxLength(200)
                     .IsRequired();
 
                 entity.Property(customer => customer.Email)
@@ -145,6 +142,32 @@ namespace customer_service.Persistence.Context
                     .HasMaxLength(100);
 
                 entity.HasIndex(consent => new { consent.CustomerId, consent.Type, consent.Status });
+            });
+
+            modelBuilder.Entity<CustomerInbox>(entity =>
+            {
+                entity.HasKey(inbox => inbox.Id);
+
+                entity.Property(inbox => inbox.MessageType)
+                    .HasConversion<string>()
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(inbox => inbox.Payload)
+                    .IsRequired();
+
+                entity.Property(inbox => inbox.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(50)
+                    .IsRequired();
+
+                entity.Property(inbox => inbox.Error)
+                    .HasMaxLength(2048);
+
+                entity.HasIndex(inbox => inbox.MessageId)
+                    .IsUnique();
+
+                entity.HasIndex(inbox => new { inbox.Status, inbox.ReceivedAt });
             });
 
             base.OnModelCreating(modelBuilder);
